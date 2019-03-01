@@ -1,0 +1,119 @@
+#!/bin/bash
+# chkconfig: - 57 75 
+
+export JAVA_HOME=/opt/XDataAus/deps/jdk
+export PATH=/opt/XDataAus/deps/jdk/bin:$PATH
+
+ROOT_PATH=/opt/servicemonitor/
+SERVICE_PID=/var/run/servicemonitor.pid
+SERVICE_NAME=servicemonitor
+
+start() {
+
+if [ -f $SERVICE_PID ];then
+	SPID=`cat $SERVICE_PID`
+	if [ "$SPID" != "" ];then
+		echo -e "\033[31m$SERVICE_NAME is running! Please check again!\033[0m"
+		echo -e "pid:\033[31m $SPID \033[0m"
+	else
+		echo -n $"Starting $prog: "
+		# 这里写启动逻辑
+		cd $ROOT_PATH
+		nohup java -jar servicemonitor.jar --spring.config.location=application.properties > console.log 2>&1 & new_pid=$!
+		echo "$new_pid" > $SERVICE_PID
+		echo -e "Start $SERVICE_NAME \033[32m [successful] \033[0m"
+	fi
+else
+	echo -n $"Starting $prog: "
+	nohup java -jar servicemonitor.jar --spring.config.location=application.properties > console.log 2>&1 & new_pid=$!
+	echo "$new_pid" > $SERVICE_PID
+	echo echo -e "Start $SERVICE_NAME \033[32m [successful] \033[0m"
+fi
+}
+ 
+stop() {
+
+if [ -f $SERVICE_PID ];then  
+	SPID=`cat $SERVICE_PID`  
+	if [ "$SPID" != "" ];then  
+		kill -9  $SPID  
+
+		echo  > $SERVICE_PID  
+		echo -e "Stop $SERVICE_NAME \033[32m [successful] \033[0m" 
+	fi  
+fi          
+}
+ 
+  
+CheckProcessStata() {  
+
+    CPS_PID=$1  
+    if [ "$CPS_PID" != "" ] ;then  
+        CPS_PIDLIST=`ps -ef|grep $CPS_PID|grep -v grep|awk -F" " '{print $2}'`  
+    else  
+        CPS_PIDLIST=`ps -ef|grep "$CPS_PNAME"|grep -v grep|awk -F" " '{print $2}'`  
+    fi  
+
+    for CPS_i in `echo $CPS_PIDLIST`  
+    do  
+        if [ "$CPS_PID" = "" ] ;then  
+            CPS_i1="$CPS_PID"  
+        else  
+            CPS_i1="$CPS_i"  
+        fi  
+  
+        if [ "$CPS_i1" = "$CPS_PID" ] ;then  
+            #kill -s 0 $CPS_i  
+            kill -0 $CPS_i >/dev/null 2>&1  
+            if [ $? != 0 ] ;then  
+                echo "[`date`] MC-10500: Process $i have \033[31m [dead] \033[0m"   
+                kill -9 $CPS_i >/dev/null 2>&1  
+                 
+                return 1  
+            else   
+                return 0  
+            fi  
+        fi  
+    done  
+    echo "[`date`] MC-10502: Process $CPS_i is not exists"   
+    return 1  
+}  
+  
+status() {  
+	SPID=`cat $SERVICE_PID`   
+	CheckProcessStata $SPID >/dev/null  
+	if [ $? != 0 ];then  
+		echo -e "$SERVICE_NAME is \033[31m [stoped] \033[0m"  
+	else  
+		echo -e "$SERVICE_NAME (pid $SPID) is \033[32m [running] \033[0m"  
+	fi  
+ 
+}  
+   
+restart() {  
+    echo "stoping ... "  
+    stop  
+    echo "staring ..."  
+    start  
+}  
+  
+case "$1" in  
+    start)  
+        start  
+        ;;  
+    stop)  
+        stop  
+        ;;  
+    status)  
+         status  
+        ;;  
+    restart)  
+        restart  
+        ;;  
+    *)  
+	echo $"Usage: $0 {start|stop|restart}"  
+	RETVAL=1  
+ 
+# echo $"Usage: $0 {start|stop|restart|force-reload}"
+exit 2
+esac
